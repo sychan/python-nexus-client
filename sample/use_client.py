@@ -19,3 +19,7 @@ if user is not None:
     print "Yup, you are {0}".format(user)
 else:
     print "That is not a valid authorization code"
+
+
+#Get an access key for yourself using rsa:
+print client.request_client_credential()

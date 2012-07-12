@@ -1,14 +1,27 @@
 """
 Client for interacting with Nexus.
 """
+import base64
 from datetime import datetime
-import time
+import hashlib
+import json
 import logging
+from subprocess import Popen, PIPE
+import time
 import urllib
 import urlparse
 
 import yaml
 import nexus.token_utils as token_utils
+from nexus.utils import (
+        read_openssh_public_key,
+        read_openssh_private_key,
+        canonical_time,
+        b64encode,
+        sha1_base64,
+        sign_with_rsa)
+import requests
+import rsa
 
 log = logging.getLogger()
 
@@ -92,3 +105,29 @@ class NexusClient(object):
                 result.refresh_token,
                 time.mktime(datetime.utcnow().timetuple()) + result.expires_in
                 )
+
+    def request_client_credential(self, password=None):
+        """
+        This is designed to support section 4.4 of the OAuth 2.0 spec:
+
+        "The client can request an access token using only its client
+         credentials (or other supported means of authentication) when the
+         client is requesting access to the protected resources under its
+         control"
+        """
+        key_file = self.config.get('private_key_file', '~/.ssh/id_rsa')
+        body = 'grant_type=client_credentials'
+        path = '/token'
+        method = 'POST'
+        headers = sign_with_rsa(key_file,
+                body,
+                path,
+                method,
+                self.config['api_key'],
+                password)
+        url_parts = ('https', self.server, path, None, None)
+        url = urlparse.urlunsplit(url_parts)
+        response = requests.post(url, data={'grant_type':
+            'client_credentials'}, headers=headers, verify=self.verify_ssl)
+        return response.json
+
