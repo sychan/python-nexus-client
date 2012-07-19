@@ -20,10 +20,6 @@ $response = $client->get( $vars{'SigningSubject'});
 $data = from_json( $response->content());
 
 $rsa = Crypt::OpenSSL::RSA->new_public_key( $data->{'pubkey'});
-$rsa->use_sha256_hash();
-
-$verify256 = $rsa->verify($sig_data,$binary_sig);
-
 $rsa->use_sha1_hash();
 
 $verify1 = $rsa->verify($sig_data,$binary_sig);
@@ -31,5 +27,4 @@ $verify1 = $rsa->verify($sig_data,$binary_sig);
 print "The cleartext is $sig_data\n";
 print "The signature is $sig";
 print "The public key for the signing subject is:\n" . $data->{'pubkey'};
-printf "The results of RSA SHA256 verification are: %s\n", $verify256 ? "True" : "False";
 printf "The results of RSA SHA1 verification are: %s\n", $verify1 ? "True" : "False";
