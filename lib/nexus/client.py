@@ -69,6 +69,8 @@ class NexusClient(object):
             log.exception("ValueError")
             return None
 
+        
+
     def generate_request_url(self, username=None):
         """
         In order for the user to authorize the client to access his data, he
@@ -84,7 +86,7 @@ class NexusClient(object):
                 }
         if username is not None:
             query_params['username'] = username
-        parts = ('https', self.server, '/authorize',
+        parts = ('https', self.server, '/goauth/authorize',
                 urllib.urlencode(query_params), None)
         return urlparse.urlunsplit(parts)
 
@@ -97,7 +99,7 @@ class NexusClient(object):
 
         :return: Tuple containing (access_token, refresh_token, expire_time)
         """
-        url_parts = ('https', self.server, '/token', None, None)
+        url_parts = ('https', self.server, '/goauth/token', None, None)
         result = token_utils.request_access_token(self.api_key,
                 self.api_secret, code, urlparse.urlunsplit(url_parts))
         return (
@@ -113,20 +115,20 @@ class NexusClient(object):
                 "client_id": client_id
                 }
         query_params = urllib.urlencode(query_params)
-        path = '/authorize'
+        path = '/goauth/authorize'
         method = 'GET'
         headers = sign_with_rsa(key_file,
                 path,
                 method,
-                self.config['api_key'],
+                client_id,
                 query=query_params,
                 password=password)
-        url_parts = ('https', self.server, '/authorize', query_params, None)
+        url_parts = ('https', self.server, '/goauth/authorize', query_params, None)
         url = urlparse.urlunsplit(url_parts)
         response = requests.get(url, headers=headers, verify=self.verify_ssl)
         return response.json
 
-    def request_client_credential(self, password=None):
+    def request_client_credential(self, client_id, password=None):
         """
         This is designed to support section 4.4 of the OAuth 2.0 spec:
 
@@ -137,12 +139,12 @@ class NexusClient(object):
         """
         key_file = self.config.get('private_key_file', '~/.ssh/id_rsa')
         body = 'grant_type=client_credentials'
-        path = '/token'
+        path = '/goauth/token'
         method = 'POST'
         headers = sign_with_rsa(key_file,
                 path,
                 method,
-                self.config['api_key'],
+                client_id,
                 body=body,
                 password=password)
         url_parts = ('https', self.server, path, None, None)
