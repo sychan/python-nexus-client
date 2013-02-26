@@ -29,12 +29,18 @@ try:
     print "Yup, you are {0}".format(user)
 except:
     print "That is not a valid authorization code"
+    user = raw_input("Please enter a globus username for further authentication tests: ")
 
 print("As " + user + ", get an access key for yourself using rsa:")
 print client.request_client_credential(user, lambda: getpass("Private Key Password"))
 
 print("As " + user + ", get a request token for client " + client.client + " using rsa authentication:")
 response = client.rsa_get_request_token(user, client.client, lambda: getpass("Private Key Password"))
+print response
+
+print("You have the following RSA ssh keys available in your ssh-agent : " + ", ".join( client.agent_keys.keys()))
+keyname = raw_input("Please type in the name of the key you want to use for ssh-agent authentication: ")
+response = client.sshagent_get_request_token(user, client.client, keyname)
 print response
 
 print("As " + client.client + ", get an access key from code:")
