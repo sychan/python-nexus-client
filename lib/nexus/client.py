@@ -19,9 +19,13 @@ from nexus.utils import (
         canonical_time,
         b64encode,
         sha1_base64,
-        sign_with_rsa)
+        sign_with_rsa,
+        sign_with_sshagent)
 import requests
 import rsa
+import paramiko.agent
+import os
+import nexus.sshagent
 
 log = logging.getLogger()
 
@@ -44,6 +48,9 @@ class NexusClient(object):
                     'args': [],
                     })
         self.client = self.config['client']
+        if 'SSH_AUTH_SOCK' in os.environ:
+            self.agent = nexus.sshagent.Agent2()
+            self.agent_keys = self.agent.keys
         self.client_secret = self.config['client_secret']
         self.user_key_file = self.config.get('user_private_key_file', '~/.ssh/id_rsa')
         cache_class = cache_config['class']
@@ -122,6 +129,25 @@ class NexusClient(object):
                 username,
                 query=query_params,
                 password=password)
+        url_parts = ('https', self.server, '/goauth/authorize', query_params, None)
+        url = urlparse.urlunsplit(url_parts)
+        response = requests.get(url, headers=headers, verify=self.verify_ssl)
+        return response.json
+
+
+    def sshagent_get_request_token(self, username, client_id, keyname):
+        query_params = {
+                "response_type": "code",
+                "client_id": client_id
+                }
+        query_params = urllib.urlencode(query_params)
+        path = '/goauth/authorize'
+        method = 'GET'
+        headers = sign_with_sshagent(self.agent_keys[keyname],
+                path,
+                method,
+                username,
+                query=query_params)
         url_parts = ('https', self.server, '/goauth/authorize', query_params, None)
         url = urlparse.urlunsplit(url_parts)
         response = requests.get(url, headers=headers, verify=self.verify_ssl)

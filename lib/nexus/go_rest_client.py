@@ -22,6 +22,7 @@ import httplib2
 import time
 from oauth2 import Request as OAuthRequest
 from oauth2 import SignatureMethod_HMAC_SHA1, Consumer, generate_nonce
+import pprint
 
 class GlobusOnlineRestClient():
     # NOTE: GraphRestClient would be more accurate, but if we want to release 
