@@ -155,7 +155,7 @@ class NexusClient(object):
         response = requests.get(url, headers=headers, verify=self.verify_ssl)
         return response.json
 
-    def request_client_credential(self, client_id, password=None):
+    def request_client_credential(self, client_id=None, password=None, username = None):
         """
         This is designed to support section 4.4 of the OAuth 2.0 spec:
 
@@ -167,15 +167,18 @@ class NexusClient(object):
         body = 'grant_type=client_credentials'
         path = '/goauth/token'
         method = 'POST'
-        headers = sign_with_rsa(self.user_key_file,
-                path,
-                method,
-                client_id,
-                body=body,
-                password=password)
         url_parts = ('https', self.server, path, None, None)
         url = urlparse.urlunsplit(url_parts)
-        response = requests.post(url, data={'grant_type': 'client_credentials'}, headers=headers, verify=self.verify_ssl)
+        if not username is None:
+            headers = sign_with_rsa(self.user_key_file,
+                                    path,
+                                    method,
+                                    client_id,
+                                    body=body,
+                                    password=password)
+            response = requests.post(url, data={'grant_type': 'client_credentials'}, headers=headers, verify=self.verify_ssl)
+        else:
+            response = requests.post(url, data={'grant_type': 'client_credentials'}, auth = (client_id, password), verify=self.verify_ssl)
         return response.json
 
     def get_user_using_access_token(self, access_token):
