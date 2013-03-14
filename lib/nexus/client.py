@@ -53,8 +53,10 @@ class NexusClient(object):
             sshkeys = self.agent.keys
             # strip out DSA keys since they are unusable for GO
             self.agent_keys = { name : sshkeys[name] for name in sshkeys.keys() if sshkeys[name].get_name() == 'ssh-rsa' }
+            self.agent_keyname = self.agent_keys.keys()[0] if len(self.agent_keys.keys()) == 1 else None
         self.client_secret = self.config['client_secret']
-        self.user_key_file = self.config.get('user_private_key_file', '~/.ssh/id_rsa')
+        default_key = os.path.expanduser( '~/.ssh/id_rsa' )
+        self.user_key_file = self.config.get('user_private_key_file', default_key if os.path.exists(default_key) else None)
         cache_class = cache_config['class']
         self.verify_ssl = self.config.get('verify_ssl', True)
         mod_name = '.'.join(cache_class.split('.')[:-1])
@@ -155,7 +157,40 @@ class NexusClient(object):
         response = requests.get(url, headers=headers, verify=self.verify_ssl)
         return response.json
 
-    def request_client_credential(self, client_id=None, password=None, username = None):
+    def request_client_credential(self, client_id, password=None):
+        """
+        This is designed to support section 4.4 of the OAuth 2.0 spec:
+        
+        "The client can request an access token using only its client
+         credentials (or other supported means of authentication) when the
+         client is requesting access to the protected resources under its
+         control"
+
+        If we have a user_key_file defined, the the client_id and password
+        for RSA authentication, if we don't have an RSA keyfile, use the
+        client_id and password for BASIC auth
+        """
+        body = 'grant_type=client_credentials'
+        path = '/goauth/token'
+        method = 'POST'
+        url_parts = ('https', self.server, path, None, None)
+        url = urlparse.urlunsplit(url_parts)
+
+        if self.user_key_file:
+            headers = sign_with_rsa(self.user_key_file,
+                                    path,
+                                    method,
+                                    client_id,
+                                    body=body,
+                                    password=password)
+            response = requests.post(url, data={'grant_type': 'client_credentials'}, headers=headers, verify=self.verify_ssl)
+        elif password:
+            response = requests.post(url, data={'grant_type': 'client_credentials'}, auth = (client_id, password), verify=self.verify_ssl)
+        else:
+            raise Exception( "Password and legitimate user_key_file required")
+        return response.json
+
+    def request_client_credential_sshagent(self, client_id=None, agent_keyname = None):
         """
         This is designed to support section 4.4 of the OAuth 2.0 spec:
 
@@ -169,16 +204,22 @@ class NexusClient(object):
         method = 'POST'
         url_parts = ('https', self.server, path, None, None)
         url = urlparse.urlunsplit(url_parts)
-        if not username is None:
-            headers = sign_with_rsa(self.user_key_file,
-                                    path,
-                                    method,
-                                    client_id,
-                                    body=body,
-                                    password=password)
+        # Handle options based on explicitly parameters - ignore implicit options based
+        # on instance attributes
+        if client_id is None:
+            client_id = self.client
+        if agent_keyname is None:
+            agent_keyname = self.agent_keyname
+
+        if agent_keyname and client_id:
+            headers = sign_with_sshagent(self.agent_keys[agent_keyname],
+                                         path,
+                                         method,
+                                         client_id,
+                                         body=body)
             response = requests.post(url, data={'grant_type': 'client_credentials'}, headers=headers, verify=self.verify_ssl)
         else:
-            response = requests.post(url, data={'grant_type': 'client_credentials'}, auth = (client_id, password), verify=self.verify_ssl)
+            raise Exception('Requires client_id and ssh agent_keyname as parameters or as part of initial config to authenticate credential request')
         return response.json
 
     def get_user_using_access_token(self, access_token):
