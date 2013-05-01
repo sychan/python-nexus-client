@@ -185,7 +185,7 @@ class NexusClient(object):
                                     password=password)
             response = requests.post(url, data={'grant_type': 'client_credentials'}, headers=headers, verify=self.verify_ssl)
         elif password:
-            response = requests.post(url, data={'grant_type': 'client_credentials'}, auth = (client_id, password), verify=self.verify_ssl)
+            response = requests.post(url, data={'grant_type': 'client_credentials','client_id' : client_id }, auth = (client_id, password), verify=self.verify_ssl)
         else:
             raise Exception( "Password and legitimate user_key_file required")
         return response.json

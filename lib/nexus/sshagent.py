@@ -47,7 +47,7 @@ class Agent2( Agent ):
             incompatible protocol
         """
         self.conn = None
-        self.keys = ()
+        self.keys = dict()
         if ('SSH_AUTH_SOCK' in os.environ) and (sys.platform != 'win32'):
             conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             try:
@@ -69,10 +69,8 @@ class Agent2( Agent ):
         ptype, result = self._send_message(chr(SSH2_AGENTC_REQUEST_IDENTITIES))
         if ptype != SSH2_AGENT_IDENTITIES_ANSWER:
             raise SSHException('could not get keys from ssh-agent')
-        keys = dict()
         for i in range(result.get_int()):
             rawkey = result.get_string()
             comment = result.get_string()
-            keys[comment] = AgentKey(self, rawkey)
-        self.keys = keys
+            self.keys[comment] = AgentKey(self, rawkey)
 
