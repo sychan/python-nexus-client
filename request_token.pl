@@ -101,4 +101,3 @@ sub canonical_time {
 
 }
 
-# An empty comment to allow a commit
